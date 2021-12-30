@@ -80,6 +80,15 @@ where ``i`` denotes the ``i-th`` layer. We should also set ``weight_hh_li_revers
 if ``bidirectional=True``.
 Usually bias is set as 0, except for 'Forget gate'. For some reason ``b_xf`` is often set as 1. 
 
+The output will be like:
+    
+    out, (h, c)
+
+``out`` is the last hidden layer's state, ``h`` is the hidden state of the last time step, and ``c`` is the candidate memory 
+of the last time step. Notice that if ``bidirectional=True``, the forward one and backward one would be concatenated together
+so that ``h`` and ``c`` would always have an additional first dimension whose length is 2. However, even if 
+``bidirectional=False``, we can still see that ``h`` and ``c`` have an additional first dimension whose length is 1.
+
 ## torch.chunk
 This function will return a view of the original tensor, which means that if you change the value of any chunked part, the original
 tensor would also be changed.
@@ -92,3 +101,9 @@ the filled value 0 to the RNN for forward calculation will not only waste comput
 have errors. Therefore, before sending the sequence to the RNN for processing, pack_padded_sequence needs to be used for 
 compression to compress invalid padding values. After the sequence is processed by RNN, the output is still a compressed 
 sequence, and pad_packed_sequence needs to be used to refill the compressed sequence to facilitate subsequent processing.
+
+## mm, bmm and matmul
+    
+    mm: (b,m) (m,k) -> (b,k)
+    bmm: (b,m,n) (b,n,k) -> (b,m,k)
+    matmul: high dimensional tensor multiply
