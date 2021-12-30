@@ -186,10 +186,16 @@ class BiDaf(nn.Module):
             """
                 :param g: (batch, seq_len, 8*char_channel_size)
                 :param m: (batch, seq_len , 2*char_channel_size)
-                :return: p1: (batch, c_len), p2: (batch, c_len)
+                :return: p1: (batch, seq_len), p2: (batch, c_len)
             """
-            a = torch.cat([g, m], dim=-1)
-            raise NotImplementedError
+            p1 = (self.p1_weight_g(g) + self.p1_weight_m(m)).squeeze()
+
+            m2 = self.output_LSTM((m, l))[0]   # why lstm again?????????????????????
+            # (batch, c_len, 2*char_channel_size)
+
+            p2 = (self.p2_weight_g(g) + self.p2_weight_m(m2)).squeeze()
+            # (batch, seq_len)
+            return p1, p2
 
         # %% character embedding
         c_char = char_embedding_layer(batch.c_char)

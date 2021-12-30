@@ -107,3 +107,10 @@ sequence, and pad_packed_sequence needs to be used to refill the compressed sequ
     mm: (b,m) (m,k) -> (b,k)
     bmm: (b,m,n) (b,n,k) -> (b,m,k)
     matmul: high dimensional tensor multiply
+
+
+
+# Questions
+
+1. why gate bias should be set as 1
+2. at line 193 in model.py, why lstm again
