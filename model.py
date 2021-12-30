@@ -105,7 +105,7 @@ class BiDaf(nn.Module):
 
         def highway(x1, x2):
             x = torch.cat([x1, x2], dim=-1)
-            # make clear the concept of highway network tomorrow!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            # make clear the concept of highway network tomorrow!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
         # %% character embedding
         c_char = char_embedding_layer(batch.c_char)
