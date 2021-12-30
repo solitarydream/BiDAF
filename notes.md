@@ -4,7 +4,7 @@ we start from the preprocessed dataset whose suffix is '.jsonl'.
 Every line contains a dict including following keys: id, context, question, answer, answer's start id, 
 and answer's end id. Namely, we call such a line an item.
 
-##Dataset, examples and field
+## Dataset, examples and field
 All the items will be loaded and packaged into a torch Dataset as examples. The context and questions will be further
 divided under word level and character level by the format provided in fields. But the partitioning will not be immediately
 performed at the time items are loaded into the Dataset as examples. You should call a function intentionally to perform 
@@ -20,7 +20,7 @@ We will separately build library for characters and words that appear in all the
 in a character library, every character is represented by a unique number. Similarly, every word is represented by a unique 
 number in the word library.
 
-#Padding
+## Padding
 Suppose we set batch size as 5. Then we load 5 items each time. Suppose the longest context among these 5 items has a 
 length of 10, and the longest word in contexts among all the items has a length of 8.
 Then, every word will be padded by a unique padding token until it has a length of 8. Next, every context will be padded
@@ -35,7 +35,7 @@ that records the real length (*i.e.*, how many words) of each context or questio
 equal to the batch size.
 
 #Functional and Modules
-# torch.nn.functional and torch.nn.Module
+## torch.nn.functional and torch.nn.Module
 their several methods have similar names and almost same functions. However, methods in 'functional' will perform the calculation directly, 
 while methods in 'Module' will create a layer. Therefore, if you want the calculation be performed both when training and testing, then use 
 the former one, otherwise, if you want it to function only when training, then choose the latter one. 
@@ -80,6 +80,15 @@ where ``i`` denotes the ``i-th`` layer. We should also set ``weight_hh_li_revers
 if ``bidirectional=True``.
 Usually bias is set as 0, except for 'Forget gate'. For some reason ``b_xf`` is often set as 1. 
 
-# torch.chunk
+## torch.chunk
 This function will return a view of the original tensor, which means that if you change the value of any chunked part, the original
 tensor would also be changed.
+
+## pack_padded sequence & pad_packed_sequence
+In order to perform batch processing more efficiently, it is necessary to fill the sample sequence to ensure that 
+the length of each sample is the same. Use the function pad_sequence to fill the sequence in PyTorch. Although the length 
+of the filled sample sequence is the same, there may be many invalid values ``0`` filled in the sequence. Feeding 
+the filled value 0 to the RNN for forward calculation will not only waste computing resources, but the final value may 
+have errors. Therefore, before sending the sequence to the RNN for processing, pack_padded_sequence needs to be used for 
+compression to compress invalid padding values. After the sequence is processed by RNN, the output is still a compressed 
+sequence, and pad_packed_sequence needs to be used to refill the compressed sequence to facilitate subsequent processing.

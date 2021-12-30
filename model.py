@@ -15,12 +15,29 @@ class LSTM(nn.Module):
         for i in range(self.lstm.num_layers):
             nn.init.orthogonal_(getattr(self.lstm, f'weight_hh_l{i}'))
             nn.init.kaiming_normal_(getattr(self.lstm, f'weight_ih_l{i}'))
-            nn.init.constant_(getattr(self.lstm, f'bias_hh_l{i}'))
-            nn.init.constant_(getattr(self.lstm, f'bias_ih_l{i}'))
+            nn.init.constant_(getattr(self.lstm, f'bias_hh_l{i}'), val=0)
+            nn.init.constant_(getattr(self.lstm, f'bias_ih_l{i}'), val=0)
+            getattr(self.lstm, f'bias_hh_l{i}').chunk(4)[1].fill_(1)
+            if self.lstm.bidirectional:
+                nn.init.orthogonal_(getattr(self.lstm, f'weight_hh_l{i}_reverse'))
+                nn.init.kaiming_normal_(getattr(self.lstm, f'weight_ih_l{i}_reverse'))
+                nn.init.constant_(getattr(self.lstm, f'bias_hh_l{i}_reverse'), val=0)
+                nn.init.constant_(getattr(self.lstm, f'bias_ih_l{i}_reverse'), val=0)
+                getattr(self.lstm, f'bias_hh_l{i}_reverse').chunk(4)[1].fill_(1)
 
     def forward(self, x):
         # [(batch, seq_len, 2*char_channel_size), seq_len list] where seq_len represents actual length before padding
-        return self.init_params()
+        x, len_list = x
+
+        len_sorted, new_idx = torch.sort(len_list, descending=True)
+        x_sorted = x.index_select(dim=0, index=new_idx)
+        _, ori_index = torch.sort(new_idx)
+
+        x_packed = nn.utils.rnn.pack_padded_sequence(x_sorted, len_sorted, batch_first=True)
+        x_packed, (h, c) = self.lstm(x_packed)
+
+        x_unpacked = nn.utils.rnn.pad_packed_sequence(x_packed, batch_first=True)[0]
+        x = x.index_select(dim=0, index=ori_index)
 
 
 class Linear(nn.Module):
@@ -33,7 +50,7 @@ class Linear(nn.Module):
 
     def reset_params(self):
         nn.init.kaiming_normal_(self.linear.weight)
-        nn.init.kaiming_normal_(self.linear.bias)
+        nn.init.constant_(self.linear.bias, 0)
 
     def forward(self, x):
         if hasattr(self, 'dropout'):
@@ -45,7 +62,7 @@ class Linear(nn.Module):
 class BiDaf(nn.Module):
     def __init__(self, data, args):
         super(BiDaf, self).__init__()
-        nn.modules.rnn.LSTM()
+        self.args = args
 
         # %% character embedding
         self.c_emb = nn.Embedding(args.char_vocab_size, args.char_dim, padding_idx=1)  # before init?
