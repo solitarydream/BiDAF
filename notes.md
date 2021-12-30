@@ -62,3 +62,24 @@ In particular, if ``torch.cat dim=-1``, concatenation will be performed along th
 This class has a parameter 'batch_first', whose default value is 'False'. Attention must be paid since we usually use
 batch size as the first dimension of tensor.
 When we choose 'batch_first', the input format should be ``(batch size, seq_len, word_len)``
+
+Weight and bias of this model are concatenated together. The order is like below(referring to <d2l page 356>):
+
+    W_xi, b_xi, W_hi, b_hi  # Input gate parameters
+    W_xf, b_xf, W_hf, b_hf  # Forget gate parameters
+    W_xo, b_xo, W_ho, b_ho  # Output gate parameters
+    W_xc, b_xc, W_hc, b_hc  # Candidate memory cell parameters
+
+In pytorch, they are concatenated together as following format:
+
+    weight_hh_li = [W_xi, W_xf, W_xo, W_xc]
+    weight_ih_li = [W_hi, W_hf, W_ho, W_hc]
+    bias_hh_li = [b_xi, b_xf, b_xo, b_xc]
+    bias_ih_li = [b_hi, b_hf, b_ho, b_hc]
+where ``i`` denotes the ``i-th`` layer. We should also set ``weight_hh_li_reverse, weight_ih_li_reverse, bias_hh_li_reverse, bias_ih_li_reverse``
+if ``bidirectional=True``.
+Usually bias is set as 0, except for 'Forget gate'. For some reason ``b_xf`` is often set as 1. 
+
+# torch.chunk
+This function will return a view of the original tensor, which means that if you change the value of any chunked part, the original
+tensor would also be changed.
