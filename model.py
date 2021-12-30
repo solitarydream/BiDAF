@@ -19,6 +19,7 @@ class LSTM(nn.Module):
             nn.init.constant_(getattr(self.lstm, f'bias_ih_l{i}'))
 
     def forward(self, x):
+        # [(batch, seq_len, 2*char_channel_size), seq_len list] where seq_len represents actual length before padding
         return self.init_params()
 
 
@@ -105,7 +106,12 @@ class BiDaf(nn.Module):
 
         def highway(x1, x2):
             x = torch.cat([x1, x2], dim=-1)
-            # make clear the concept of highway network tomorrow!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            for i in range(2):
+                c = getattr(self, f'highway_gate{i}')(x)
+                h = getattr(self, f'highway_linear{i}')(x)
+                x = c * h + (1 - c) * x
+            # (batch, seq_len, 2*char_channel_size)
+            return x
 
         # %% character embedding
         c_char = char_embedding_layer(batch.c_char)
@@ -119,3 +125,5 @@ class BiDaf(nn.Module):
         q_word_len = batch.q_word[1]
 
         # %% highway
+        c = highway(c_char, c_word)
+        q = highway(q_char, q_word)

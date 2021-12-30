@@ -57,3 +57,8 @@ neglectable even if it is ``1``.
 ## torch.cat
 This function has a parameter 'dim', indicating along which dimension the concatenation should be performed. 
 In particular, if ``torch.cat dim=-1``, concatenation will be performed along the last dimension of the tensor.
+
+## nn.LSTM
+This class has a parameter 'batch_first', whose default value is 'False'. Attention must be paid since we usually use
+batch size as the first dimension of tensor.
+When we choose 'batch_first', the input format should be ``(batch size, seq_len, word_len)``
