@@ -4,12 +4,12 @@ import torch.nn.functional as fc
 
 
 class LSTM(nn.Module):
-    def __init__(self, input_size, hidden_size, bidirectional, batch_first, dropout):
+    def __init__(self, input_size, hidden_size, batch_first=False, num_layers=1, bidirectional=False, dropout=0.2):
         super(LSTM, self).__init__()
-        self.lstm = nn.LSTM(input_size=input_size, hidden_size=hidden_size, batch_first=False,
-                            bidirectional=False, num_layers=1)
+        self.lstm = nn.LSTM(input_size=input_size, hidden_size=hidden_size, num_layers=num_layers,
+                            batch_first=batch_first, bidirectional=bidirectional)
         self.init_params()
-        self.dropout = nn.Dropout(p=0.2)
+        self.dropout = nn.Dropout(p=dropout)
 
     def init_params(self):
         for i in range(self.lstm.num_layers):
@@ -17,13 +17,41 @@ class LSTM(nn.Module):
             nn.init.kaiming_normal_(getattr(self.lstm, f'weight_ih_l{i}'))
             nn.init.constant_(getattr(self.lstm, f'bias_hh_l{i}'), val=0)
             nn.init.constant_(getattr(self.lstm, f'bias_ih_l{i}'), val=0)
-            getattr(self.lstm, f'bias_hh_l{i}').chunk(4)[1].fill_(1)
+            attrs = getattr(self.lstm, f'bias_hh_l{i}')
+            #print(attrs)
+            length = len(attrs)
+            # print(length)
+            secs = attrs.split(int(length / 4))
+            # print(secs[0].shape,secs[1].shape,secs[2].shape,secs[3].shape,len(secs))
+            # print(list(secs))
+            # sec_list =[x for x in (secs)]
+            sec_list = []
+            for k in range(4):
+                sec_list.append(secs[k])
+            sec_list[1] = torch.ones(sec_list[1].shape)
+            final = torch.cat(sec_list, dim=0)
+            # print(type(final),type(attrs))
+            setattr(self.lstm, f'bias_hh_l{i}', nn.parameter.Parameter(final))
+
             if self.lstm.bidirectional:
                 nn.init.orthogonal_(getattr(self.lstm, f'weight_hh_l{i}_reverse'))
                 nn.init.kaiming_normal_(getattr(self.lstm, f'weight_ih_l{i}_reverse'))
                 nn.init.constant_(getattr(self.lstm, f'bias_hh_l{i}_reverse'), val=0)
                 nn.init.constant_(getattr(self.lstm, f'bias_ih_l{i}_reverse'), val=0)
-                getattr(self.lstm, f'bias_hh_l{i}_reverse').chunk(4)[1].fill_(1)
+                attrs = getattr(self.lstm, f'bias_hh_l{i}_reverse')
+                length = len(attrs)
+                secs = attrs.split(int(length / 4))
+                # print(secs[0].shape,secs[1].shape,secs[2].shape,secs[3].shape,len(secs))
+                # print(list(secs))
+                # sec_list =[x for x in (secs)]
+                sec_list = []
+                for k in range(4):
+                    sec_list.append(secs[k])
+                sec_list[1] = torch.ones(sec_list[1].shape)
+                final = torch.cat(sec_list, dim=0)
+                setattr(self.lstm, f'bias_hh_l{i}_reverse', nn.parameter.Parameter(final))
+                # getattr(self.lstm, f'bias_hh_l{i}_reverse').chunk(4)[1].fill_(1)
+                # this in-place operation is no more available
 
     def forward(self, x):
         # [(batch, seq_len, 2*char_channel_size), seq_len list] where seq_len represents actual length before padding
@@ -47,7 +75,7 @@ class LSTM(nn.Module):
 
 
 class Linear(nn.Module):
-    def __init__(self, in_features, out_features, dropout):
+    def __init__(self, in_features, out_features, dropout=0.0):
         super(Linear, self).__init__()
         self.linear = nn.Linear(in_features=in_features, out_features=out_features)
         if dropout > 0:
@@ -66,18 +94,18 @@ class Linear(nn.Module):
 
 
 class BiDaf(nn.Module):
-    def __init__(self, data, args):
+    def __init__(self, args=None, word_vectors=None):
         super(BiDaf, self).__init__()
-        self.args = args
-
+        # self.args = args
         # %% character embedding
         self.c_emb = nn.Embedding(args.char_vocab_size, args.char_dim, padding_idx=1)  # before init?
-        self.nn.init.uniform(self.c_matrix.weight, -0.01, 0.01)
-        self.CharConv = nn.Sequential(nn.Conv2d(1, args.chan_size, (args.char_dim, args.char_width)), nn.ReLU())
+        nn.init.uniform_(self.c_emb.weight, -0.01, 0.01)
+        self.CharConv = nn.Sequential(nn.Conv2d(1, args.char_channel_size, (args.char_dim, args.char_channel_width)),
+                                      nn.ReLU())
         # print(c_matrix.weight)
 
         # %% word embedding
-        self.w_emb = nn.Embedding.from_pretrained(data.word.vocab.vectors, freeze=True)
+        self.w_emb = nn.Embedding.from_pretrained(word_vectors, freeze=True)
 
         # %% highway
         for i in range(2):
@@ -93,9 +121,9 @@ class BiDaf(nn.Module):
         self.att_q = Linear(args.hidden_size * 2, 1)
         self.att_cq = Linear(args.hidden_size * 2, 1)
         # %% modeling
-        self.modeling_lstm1 = LSTM(input_size=args.hidden_size * 8, hidden_size=args, bidirectional=True,
+        self.modeling_lstm1 = LSTM(input_size=args.hidden_size * 8, hidden_size=args.hidden_size, bidirectional=True,
                                    batch_first=True, dropout=args.dropout)
-        self.modeling_lstm2 = LSTM(input_size=args.hidden_size * 2, hidden_size=args, bidirectional=True,
+        self.modeling_lstm2 = LSTM(input_size=args.hidden_size * 2, hidden_size=args.hidden_size, bidirectional=True,
                                    batch_first=True, dropout=args.dropout)
 
         # %% output
@@ -103,7 +131,7 @@ class BiDaf(nn.Module):
         self.p1_weight_m = Linear(args.hidden_size * 2, 1, dropout=args.dropout)
         self.p2_weight_g = Linear(args.hidden_size * 8, 1, dropout=args.dropout)
         self.p2_weight_m = Linear(args.hidden_size * 2, 1, dropout=args.dropout)
-        self.output_lstm = LSTM(input_size=args.hidden_size * 2, hidden_size=args, bidirectional=True,
+        self.output_lstm = LSTM(input_size=args.hidden_size * 2, hidden_size=args.hidden_size, bidirectional=True,
                                 batch_first=True, dropout=args.dropout)
 
         # %%
@@ -190,7 +218,7 @@ class BiDaf(nn.Module):
             """
             p1 = (self.p1_weight_g(g) + self.p1_weight_m(m)).squeeze()
 
-            m2 = self.output_LSTM((m, l))[0]   # why lstm again?????????????????????
+            m2 = self.output_LSTM((m, l))[0]  # why lstm again?????????????????????
             # (batch, c_len, 2*char_channel_size)
 
             p2 = (self.p2_weight_g(g) + self.p2_weight_m(m2)).squeeze()

@@ -10,7 +10,7 @@ from torchtext.vocab import GloVe
 
 
 # %%
-class Squad():
+class Squad:
     def __init__(self):
         self.train = None
         self.dev = None
@@ -115,10 +115,11 @@ def dataloader(args, dir_path='./data/squad/'):
     char.build_vocab(train, dev)
     word.build_vocab(train, dev, vectors=GloVe(name='6B', dim=args.word_dim))
     # %%
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     train_iterator = data.BucketIterator(train, batch_size=args.train_batch_size, sort_key=lambda x: x.c_word,
-                                         device='cuda', repeat=True, shuffle=True)
+                                         device=device, repeat=True, shuffle=True)
     dev_iterator = data.BucketIterator(dev, batch_size=args.dev_batch_size, sort_key=lambda x: x.c_word,
-                                       device='cuda', repeat=True, shuffle=True)
+                                       device=device, repeat=True, shuffle=True)
 
     dt = Squad()
     dt.train = train
